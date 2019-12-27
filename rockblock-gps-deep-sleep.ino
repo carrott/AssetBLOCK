@@ -78,7 +78,7 @@ void setup()
   // Set max Iridium WAIT
   modem.adjustSendReceiveTimeout(mySettings.timeout);
   
-  modem.setPowerProfile(IridiumSBD::DEFAULT_POWER_PROFILE); // 0 = direct connect (default), 1 = USB
+  modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE); // 0 = direct connect (default), 1 = USB
   
   // All unused pins to LOW for power saving
   for (int i=0;i<20;i++) {
