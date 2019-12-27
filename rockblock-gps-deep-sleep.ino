@@ -222,12 +222,14 @@ void loop()
       Serial.print("Messages remaining to be retrieved: ");
       Serial.println(modem.getWaitingMessageCount());
     }
+    modem.sleep();
+    // wait for modem to go to sleep otherwise the debug report doesn't get sent
+    delay(5000);
   }
 
   // Sleep
   Serial.println("Going to sleep mode for about an hour...");
 
-  modem.sleep();
   ssIridium.end();
   ssGPS.end();
   
