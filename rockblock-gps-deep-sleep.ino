@@ -140,8 +140,11 @@ void loop()
   // Step 3: Start talking to the RockBLOCK and power it up
   Serial.println("Beginning to talk to the RockBLOCK...");
   ssIridium.listen();
-  if (modem.begin() == ISBD_SUCCESS)
-  {
+  int modemStatus = modem.begin();
+  if (modemStatus != ISBD_SUCCESS) {
+    Serial.print("Modem didn't start, status: ");
+    Serial.println(modemStatus);
+  } else {
     char outBuffer[60]; // Always try to keep message short
     size_t inBufferSize = sizeof(inBuffer);
         
