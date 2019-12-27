@@ -6,13 +6,13 @@
 #include <EEPROM.h> // For writing settings
 
 #define BEACON_INTERVAL 3600 // Time between transmissions
-#define ROCKBLOCK_RX_PIN 7
-#define ROCKBLOCK_TX_PIN 8
-#define ROCKBLOCK_SLEEP_PIN 6
+#define ROCKBLOCK_RX_PIN 15
+#define ROCKBLOCK_TX_PIN 14
+#define ROCKBLOCK_SLEEP_PIN 4
 #define ROCKBLOCK_BAUD 19200
 #define ROCKBLOCK_SENDRECEIVE_TIME 120
-#define GPS_RX_PIN 2
-#define GPS_TX_PIN 3
+#define GPS_RX_PIN 17
+#define GPS_TX_PIN 18
 #define GPS_ENABLE_PIN 4
 #define GPS_BAUD 9600
 #define GPS_MAX_WAIT 120
@@ -58,9 +58,7 @@ void saveConfig() {
     EEPROM.write(CONFIG_START + t, *((char*)&mySettings + t));
 }
 
-SoftwareSerial ssIridium(ROCKBLOCK_RX_PIN, ROCKBLOCK_TX_PIN);
-SoftwareSerial ssGPS(GPS_RX_PIN, GPS_TX_PIN);
-IridiumSBD modem(ssIridium, ROCKBLOCK_SLEEP_PIN);
+IridiumSBD modem(Serial3, ROCKBLOCK_SLEEP_PIN);
 TinyGPSPlus tinygps;
 
 uint8_t inBuffer[200];
@@ -71,7 +69,8 @@ void setup()
  
   // Start the serial ports
   Serial.begin(CONSOLE_BAUD);
-  ssIridium.begin(ROCKBLOCK_BAUD);
+  Serial1.begin(GPS_BAUD);
+  Serial3.begin(ROCKBLOCK_BAUD);
 
   // Load config from memory
   loadConfig();
@@ -113,20 +112,15 @@ void loop()
   Serial.println("Enabling GPS chip...");
   digitalWrite(GPS_ENABLE_PIN, HIGH);
   
-  // Step 0: Start the serial ports
-  ssIridium.begin(ROCKBLOCK_BAUD);
-  ssGPS.begin(GPS_BAUD);
-
   // Step 1: Reset TinyGPS++ and begin listening to the GPS
   Serial.println("Beginning to listen for GPS traffic...");
   tinygps = TinyGPSPlus();
-  ssGPS.listen();
 
   // Step 2: Look for GPS signal for up to 3 minutes
   for (unsigned long now = millis(); !fixFound && millis() - now < GPS_MAX_WAIT * 1000UL;)
-    if (ssGPS.available())
+    if (Serial1.available())
     {
-      tinygps.encode(ssGPS.read());
+      tinygps.encode(Serial1.read());
       fixFound = tinygps.location.isValid() && tinygps.date.isValid() &&
         tinygps.time.isValid() && tinygps.altitude.isValid();
     }
@@ -139,7 +133,6 @@ void loop()
 
   // Step 3: Start talking to the RockBLOCK and power it up
   Serial.println("Beginning to talk to the RockBLOCK...");
-  ssIridium.listen();
   int modemStatus = modem.begin();
   if (modemStatus != ISBD_SUCCESS) {
     Serial.print("Modem didn't start, status: ");
@@ -232,9 +225,6 @@ void loop()
 
   // Sleep
   Serial.println("Going to sleep mode for about an hour...");
-
-  ssIridium.end();
-  ssGPS.end();
   
   for(int i=0;i<mySettings.interval/8;i++) {
     
