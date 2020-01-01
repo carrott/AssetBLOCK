@@ -13,7 +13,7 @@
 #define ROCKBLOCK_SENDRECEIVE_TIME 120
 #define GPS_RX_PIN 17
 #define GPS_TX_PIN 18
-#define GPS_ENABLE_PIN 4
+#define GPS_ENABLE_PIN 7
 #define GPS_BAUD 9600
 #define GPS_MAX_WAIT 120
 #define CONSOLE_BAUD 115200
@@ -110,7 +110,7 @@ void loop()
   
   // Wake up GPS
   Serial.println("Enabling GPS chip...");
-  digitalWrite(GPS_ENABLE_PIN, HIGH);
+  digitalWrite(GPS_ENABLE_PIN, LOW);
   
   // Step 1: Reset TinyGPS++ and begin listening to the GPS
   Serial.println("Beginning to listen for GPS traffic...");
@@ -129,7 +129,7 @@ void loop()
 
   // Disable GPS
   Serial.println("Disabling GPS chip...");
-  digitalWrite(GPS_ENABLE_PIN, LOW);
+  digitalWrite(GPS_ENABLE_PIN, HIGH);
 
   // Step 3: Start talking to the RockBLOCK and power it up
   Serial.println("Beginning to talk to the RockBLOCK...");
