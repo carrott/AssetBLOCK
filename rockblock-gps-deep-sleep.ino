@@ -1,7 +1,6 @@
 #include <IridiumSBD.h> // Using own fork of IridiumSBD @ https://github.com/appelflap/IridiumSBD
 #include <SoftwareSerial.h>
 #include <TinyGPS++.h> // NMEA parsing: http://arduiniana.org
-#include <PString.h> // String buffer formatting: http://arduiniana.org
 #include <Time.h> // https://www.pjrc.com/teensy/td_libs_Time.html
 #include <EEPROM.h> // For writing settings
 
@@ -148,28 +147,19 @@ void loop()
         
     if (fixFound)
     {
-      sprintf(outBuffer, "%d%02d%02d%02d%02d%02d,",
-        tinygps.date.year(), tinygps.date.month(), tinygps.date.day(),
-        tinygps.time.hour(), tinygps.time.minute(), tinygps.time.second());
-      int len = strlen(outBuffer);
-      PString str(outBuffer, sizeof(outBuffer) - len);
-      str.print(tinygps.date.value());
-      str.print(",");
-      str.print(tinygps.time.value());
-      str.print(",");
-      str.print(tinygps.location.lat(), 6);
-      str.print(",");
-      str.print(tinygps.location.lng(), 6);
-      str.print(",");
-      str.print(tinygps.satellites.value());
-      str.print(",");
-      str.print(tinygps.altitude.meters());
-      str.print(",");
-      str.print(tinygps.speed.kmph());
-      str.print(",");
-      str.print(tinygps.course.deg());
+      snprintf(outBuffer, sizeof(outBuffer),
+        "%02d%02d"
+        "%02d%02d,"
+        "%s,%s,"
+        "%d,%d,%d",
+        tinygps.date.month(), tinygps.date.day(),
+        tinygps.time.hour(), tinygps.time.minute(),
+        String(tinygps.location.lat(), 5).c_str(), String(tinygps.location.lng(), 5).c_str(),
+        (int) tinygps.altitude.meters(), (int) tinygps.speed.kmph(), (int) tinygps.course.deg());
       
-      Serial.print("Transmitting message: ");
+      Serial.print("Transmitting message (");
+      Serial.print(strlen(outBuffer));
+      Serial.print( " chars): ");
       Serial.println(outBuffer);
       err = modem.sendReceiveSBDText(outBuffer, inBuffer, inBufferSize);
     }
