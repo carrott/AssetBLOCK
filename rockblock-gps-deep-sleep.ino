@@ -111,14 +111,24 @@ void loop()
   Serial.println("Beginning to listen for GPS traffic...");
   tinygps = TinyGPSPlus();
 
+  int gpsChars = 0;
+  unsigned long lastFixProgress = 0;
   // Step 2: Look for GPS signal for up to 3 minutes
-  for (unsigned long now = millis(); !fixFound && millis() - now < GPS_MAX_WAIT * 1000UL;)
+  for (unsigned long now = millis(); !fixFound && millis() - now < GPS_MAX_WAIT * 1000UL;) {
     if (Serial1.available())
     {
+      gpsChars++;
       tinygps.encode(Serial1.read());
       fixFound = tinygps.location.isValid() && tinygps.date.isValid() &&
         tinygps.time.isValid() && tinygps.altitude.isValid();
     }
+    if (fixFound || millis() - lastFixProgress > 1000) {
+      Serial.print(gpsChars);
+      Serial.print(',');
+      Serial.println(tinygps.satellites.value());
+      lastFixProgress = millis();
+    }
+  }
 
   Serial.println(fixFound ? F("A GPS fix was found!") : F("No GPS fix was found."));
 
