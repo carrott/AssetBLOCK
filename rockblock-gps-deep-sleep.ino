@@ -82,15 +82,6 @@ void setup()
   
   modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE); // 0 = direct connect (default), 1 = USB
   
-  // All unused pins to LOW for power saving
-  for (int i=0;i<20;i++) {
-    if(i != ROCKBLOCK_RX_PIN
-       && i != ROCKBLOCK_TX_PIN
-       && i != GPS_RX_PIN
-       && i != GPS_TX_PIN)
-    pinMode(i, OUTPUT);
-  }
-
   //SETUP WATCHDOG TIMER
   WDTCSR = (24);//change enable and WDE - also resets
   WDTCSR = (33);//prescalers only - get rid of the WDE and WDCE bit
