@@ -224,12 +224,11 @@ void loop()
       Serial.println(modem.getWaitingMessageCount());
     }
     modem.sleep();
-    // wait for modem to go to sleep otherwise the debug report doesn't get sent
-    delay(5000);
   }
 
   // Sleep
   Serial.println("Going to sleep mode for about an hour...");
+  Serial.flush();
   digitalWrite(LED_BUILTIN, LOW);
   
   for(int i=0;i<mySettings.interval/8;i++) {
