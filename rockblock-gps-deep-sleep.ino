@@ -66,7 +66,9 @@ char inBufferString[200];
 
 void setup()
 {
- 
+  pinMode(ROCKBLOCK_SLEEP_PIN, OUTPUT);
+  pinMode(GPS_ENABLE_PIN, OUTPUT);
+
   // Start the serial ports
   Serial.begin(CONSOLE_BAUD);
   Serial1.begin(GPS_BAUD);
@@ -88,7 +90,7 @@ void setup()
        && i != GPS_TX_PIN)
     pinMode(i, OUTPUT);
   }
-  
+
   //SETUP WATCHDOG TIMER
   WDTCSR = (24);//change enable and WDE - also resets
   WDTCSR = (33);//prescalers only - get rid of the WDE and WDCE bit
