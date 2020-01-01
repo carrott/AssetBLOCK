@@ -66,6 +66,7 @@ char inBufferString[200];
 
 void setup()
 {
+  pinMode(LED_BUILTIN, OUTPUT);
   pinMode(ROCKBLOCK_SLEEP_PIN, OUTPUT);
   pinMode(GPS_ENABLE_PIN, OUTPUT);
 
@@ -109,6 +110,8 @@ void loop()
   bool fixFound = false;
   int err;
   unsigned long loopStartTime = millis();
+
+  digitalWrite(LED_BUILTIN, HIGH);
   
   // Wake up GPS
   Serial.println("Enabling GPS chip...");
@@ -227,12 +230,14 @@ void loop()
 
   // Sleep
   Serial.println("Going to sleep mode for about an hour...");
+  digitalWrite(LED_BUILTIN, LOW);
   
   for(int i=0;i<mySettings.interval/8;i++) {
-    
+    digitalWrite(LED_BUILTIN, HIGH);
     //BOD DISABLE - this must be called right before the __asm__ sleep instruction
     MCUCR |= (3 << 5); //set both BODS and BODSE at the same time
     MCUCR = (MCUCR & ~(1 << 5)) | (1 << 6); //then set the BODS bit and clear the BODSE bit at the same time
+    digitalWrite(LED_BUILTIN, LOW);
     __asm__  __volatile__("sleep");//in line assembler to go to sleep
     
   }
