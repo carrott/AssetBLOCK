@@ -3,6 +3,8 @@
 #include <TinyGPS++.h> // NMEA parsing: http://arduiniana.org
 #include <Time.h> // https://www.pjrc.com/teensy/td_libs_Time.html
 #include <EEPROM.h> // For writing settings
+#include <SPI.h>
+#include <SdFat.h>
 
 #define BEACON_INTERVAL 3600 // Time between transmissions
 #define ROCKBLOCK_RX_PIN 15
@@ -16,6 +18,11 @@
 #define GPS_BAUD 9600
 #define GPS_MAX_WAIT 120
 #define CONSOLE_BAUD 115200
+
+#define SOFT_MISO_PIN 12
+#define SOFT_MOSI_PIN 11
+#define SOFT_SCK_PIN 13
+#define SD_CHIP_SELECT_PIN 10
 
 #define CONFIG_VERSION "ir1"
 #define CONFIG_START 32
@@ -95,6 +102,27 @@ void setup()
   SMCR |= 1;//enable sleep
 }
 
+void writeToSd(char *message) {
+  Serial.println("Writing to sdcard");
+
+  SdFatSoftSpi<SOFT_MISO_PIN, SOFT_MOSI_PIN, SOFT_SCK_PIN> sd;
+  if (!sd.begin(SD_CHIP_SELECT_PIN)) {
+    Serial.println("Error opening sdcard");
+    return;
+  }
+  SdFile dataFile;
+  if (!dataFile.open("gps.csv", O_WRONLY | O_APPEND)) {
+    Serial.println("Error opening file for writing");
+    return;
+  }
+  dataFile.println(message);
+  dataFile.flush();
+  dataFile.close();
+
+  // let the sdcard do it's thing
+  delay(2000);
+}
+
 void loop()
 {
   bool fixFound = false;
@@ -132,6 +160,31 @@ void loop()
 
   Serial.println(fixFound ? F("A GPS fix was found!") : F("No GPS fix was found."));
 
+  char outBuffer[60]; // Always try to keep message short
+  if (fixFound)
+  {
+    snprintf(outBuffer, sizeof(outBuffer),
+      "%02d%02d"
+      "%02d%02d,"
+      "%s,%s,"
+      "%d,%d,%d",
+      tinygps.date.month(), tinygps.date.day(),
+      tinygps.time.hour(), tinygps.time.minute(),
+      String(tinygps.location.lat(), 5).c_str(), String(tinygps.location.lng(), 5).c_str(),
+      (int) tinygps.altitude.meters(), (int) tinygps.speed.kmph(), (int) tinygps.course.deg());
+  }
+  else
+  {
+    snprintf(outBuffer, sizeof(outBuffer), "No Fix");
+  }
+
+  Serial.print("Message (");
+  Serial.print(strlen(outBuffer));
+  Serial.print( " chars): ");
+  Serial.println(outBuffer);
+
+  writeToSd(outBuffer);
+
   // Disable GPS
   Serial.println("Disabling GPS chip...");
   digitalWrite(GPS_ENABLE_PIN, HIGH);
@@ -143,32 +196,10 @@ void loop()
     Serial.print("Modem didn't start, status: ");
     Serial.println(modemStatus);
   } else {
-    char outBuffer[60]; // Always try to keep message short
     size_t inBufferSize = sizeof(inBuffer);
         
-    if (fixFound)
-    {
-      snprintf(outBuffer, sizeof(outBuffer),
-        "%02d%02d"
-        "%02d%02d,"
-        "%s,%s,"
-        "%d,%d,%d",
-        tinygps.date.month(), tinygps.date.day(),
-        tinygps.time.hour(), tinygps.time.minute(),
-        String(tinygps.location.lat(), 5).c_str(), String(tinygps.location.lng(), 5).c_str(),
-        (int) tinygps.altitude.meters(), (int) tinygps.speed.kmph(), (int) tinygps.course.deg());
-      
-      Serial.print("Transmitting message (");
-      Serial.print(strlen(outBuffer));
-      Serial.print( " chars): ");
-      Serial.println(outBuffer);
-      err = modem.sendReceiveSBDText(outBuffer, inBuffer, inBufferSize);
-    }
-    else
-    {
-      // Empty the string in stead of saying "No GPS Fix"
-      err = modem.sendReceiveSBDBinary(NULL, NULL, inBuffer, inBufferSize);
-    }
+    Serial.print("Transmitting message");
+    err = modem.sendReceiveSBDText(outBuffer, inBuffer, inBufferSize);
     
     if (err != ISBD_SUCCESS)
     {
@@ -221,7 +252,7 @@ void loop()
   Serial.println("Going to sleep mode for about an hour...");
   Serial.flush();
   digitalWrite(LED_BUILTIN, LOW);
-  
+
   for(int i=0;i<mySettings.interval/8;i++) {
     digitalWrite(LED_BUILTIN, HIGH);
     //BOD DISABLE - this must be called right before the __asm__ sleep instruction
