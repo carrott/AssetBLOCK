@@ -6,6 +6,10 @@
 #include <SPI.h>
 #include <SdFat.h>
 
+#include <Adafruit_Sensor.h>
+#include <DHT.h>
+#include <DHT_U.h>
+
 #define BEACON_INTERVAL 3600 // Time between transmissions
 #define ROCKBLOCK_RX_PIN 15
 #define ROCKBLOCK_TX_PIN 14
@@ -17,6 +21,12 @@
 #define GPS_ENABLE_PIN 7
 #define GPS_BAUD 9600
 #define GPS_MAX_WAIT 120
+
+#define DHT_1_PIN 9
+#define DHT_1_TYPE DHT11
+#define DHT_2_PIN 6
+#define DHT_2_TYPE DHT22
+
 #define CONSOLE_BAUD 115200
 
 #define SOFT_MISO_PIN 12
@@ -66,6 +76,8 @@ void saveConfig() {
 
 IridiumSBD modem(Serial3, ROCKBLOCK_SLEEP_PIN);
 TinyGPSPlus tinygps;
+DHT_Unified dht1(DHT_1_PIN, DHT_1_TYPE);
+DHT_Unified dht2(DHT_2_PIN, DHT_2_TYPE);
 
 uint8_t inBuffer[200];
 char inBufferString[200];
@@ -88,6 +100,9 @@ void setup()
   modem.adjustSendReceiveTimeout(mySettings.timeout);
   
   modem.setPowerProfile(IridiumSBD::USB_POWER_PROFILE); // 0 = direct connect (default), 1 = USB
+
+  dht1.begin();
+  dht2.begin();
   
   //SETUP WATCHDOG TIMER
   WDTCSR = (24);//change enable and WDE - also resets
@@ -160,34 +175,66 @@ void loop()
 
   Serial.println(fixFound ? F("A GPS fix was found!") : F("No GPS fix was found."));
 
-  char outBuffer[60]; // Always try to keep message short
-  if (fixFound)
-  {
-    snprintf(outBuffer, sizeof(outBuffer),
-      "%02d%02d"
-      "%02d%02d,"
-      "%s,%s,"
-      "%d,%d,%d",
-      tinygps.date.month(), tinygps.date.day(),
-      tinygps.time.hour(), tinygps.time.minute(),
-      String(tinygps.location.lat(), 5).c_str(), String(tinygps.location.lng(), 5).c_str(),
-      (int) tinygps.altitude.meters(), (int) tinygps.speed.kmph(), (int) tinygps.course.deg());
-  }
-  else
-  {
-    snprintf(outBuffer, sizeof(outBuffer), "No Fix");
-  }
 
-  Serial.print("Message (");
-  Serial.print(strlen(outBuffer));
+  setTime(tinygps.time.hour(),
+    tinygps.time.minute(),
+    tinygps.time.second(),
+    tinygps.date.day(),
+    tinygps.date.month(), 
+    tinygps.date.year());
+  time_t gpsTime = now();
+
+  sensors_event_t event;
+  dht1.temperature().getEvent(&event);
+  float temperature1 = event.temperature;
+  dht1.humidity().getEvent(&event);
+  float humidity1 = event.relative_humidity;
+
+  dht2.temperature().getEvent(&event);
+  float temperature2 = event.temperature;
+  dht2.humidity().getEvent(&event);
+  float humidity2 = event.relative_humidity;
+
+  // generate the guts of the message
+  char outBuffer[60];
+  snprintf(outBuffer, sizeof(outBuffer),
+    "%s,%s,"
+    "%d,%d,%d,"
+    "%s,%d,"
+    "%s,%d",
+    String(tinygps.location.lat(), 5).c_str(), String(tinygps.location.lng(), 5).c_str(),
+    (int) tinygps.altitude.meters(), (int) tinygps.speed.kmph(), (int) tinygps.course.deg(),
+    String(temperature1, 1).c_str(), (int) humidity1,
+    String(temperature2, 1).c_str(), (int) humidity2);
+
+  // pre-pend ISO8601 date and write to the sdcard
+  char dateBuffer[60];
+  snprintf(dateBuffer, sizeof(dateBuffer),
+    "%04d%02d%02dT"
+    "%02d%02d%02dZ,"
+    "%s",
+    tinygps.date.year(), tinygps.date.month(), tinygps.date.day(),
+    tinygps.time.hour(), tinygps.time.minute(), tinygps.time.second(),
+    outBuffer);
+  Serial.print("sdcard line (");
+  Serial.print(strlen(dateBuffer));
   Serial.print( " chars): ");
-  Serial.println(outBuffer);
+  Serial.println(dateBuffer);
+  writeToSd(dateBuffer);
 
-  writeToSd(outBuffer);
-
-  // Disable GPS
-  Serial.println("Disabling GPS chip...");
+  // Disable GPS and sdcard
+  Serial.println("Disabling GPS shield...");
   digitalWrite(GPS_ENABLE_PIN, HIGH);
+
+  // prepend a compressed date and send via Iridium
+  snprintf(dateBuffer, sizeof(dateBuffer),
+    "%04x%s",
+    (uint16_t) ((now() - 1577836800l) / 60),
+    outBuffer);
+  Serial.print("Iridium Message (");
+  Serial.print(strlen(dateBuffer));
+  Serial.print( " chars): ");
+  Serial.println(dateBuffer);
 
   // Step 3: Start talking to the RockBLOCK and power it up
   Serial.println("Beginning to talk to the RockBLOCK...");
@@ -199,7 +246,7 @@ void loop()
     size_t inBufferSize = sizeof(inBuffer);
         
     Serial.print("Transmitting message");
-    err = modem.sendReceiveSBDText(outBuffer, inBuffer, inBufferSize);
+    err = modem.sendReceiveSBDText(dateBuffer, inBuffer, inBufferSize);
     
     if (err != ISBD_SUCCESS)
     {
