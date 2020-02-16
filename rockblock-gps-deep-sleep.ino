@@ -173,6 +173,14 @@ void loop()
     }
   }
 
+  // wait another 10 seconds to give the GPS some time to settle
+  for (unsigned long now = millis();  millis() - now < 10000UL;) {
+    if (Serial1.available()) {
+      gpsChars++;
+      tinygps.encode(Serial1.read());
+    }
+  }
+
   Serial.println(fixFound ? F("A GPS fix was found!") : F("No GPS fix was found."));
 
 
