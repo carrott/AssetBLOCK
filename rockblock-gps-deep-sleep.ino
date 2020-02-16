@@ -10,7 +10,7 @@
 #include <DHT.h>
 #include <DHT_U.h>
 
-#define BEACON_INTERVAL 3600 // Time between transmissions
+#define BEACON_INTERVAL 21600 // Time between transmissions
 #define ROCKBLOCK_RX_PIN 15
 #define ROCKBLOCK_TX_PIN 14
 #define ROCKBLOCK_SLEEP_PIN 4
